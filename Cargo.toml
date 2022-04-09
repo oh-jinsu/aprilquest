@@ -1,0 +1,10 @@
+[package]
+name = "aprilquest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dotenv = "0.15.0"
+actix-web = "4"
+derive_more = "0.99.17"
+serde = { version = "1.0", features = ["derive"] }
