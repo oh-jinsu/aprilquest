@@ -1,4 +1,6 @@
 pub mod app;
+pub mod auth;
+
 use serde::Serialize;
 use actix_web::{HttpResponse, HttpResponseBuilder, http::StatusCode};
 
