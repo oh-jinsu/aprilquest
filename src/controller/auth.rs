@@ -1,13 +1,16 @@
-use super::{status, message};
-use super::super::model::UserModel;
+use super::{
+  status,
+  message,
+  super::{
+    repository,
+  }
+};
 
 use actix_web::{post, web, Responder};
 use serde::{Serialize, Deserialize};
 use regex::Regex;
-use mysql::*;
-use mysql::prelude::*;
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct SignUpRequestBody {
   pub email: String,
   pub password: String,
@@ -21,7 +24,10 @@ pub struct SignUpResponseBody {
 }
 
 #[post("signup")]
-pub async fn signup(pool: web::Data<mysql::Pool>, body: web::Json<SignUpRequestBody>) -> impl Responder {
+pub async fn signup(
+  user_repository: web::Data<repository::user::UserRepository>,
+  body: web::Json<SignUpRequestBody>,
+) -> impl Responder {
   if is_not_email(&body.email) {
     return status(400).json(message("Invalid email"))
   }
@@ -38,37 +44,15 @@ pub async fn signup(pool: web::Data<mysql::Pool>, body: web::Json<SignUpRequestB
     return status(400).json(message("Space in password"))
   }
 
-  let mut conn = pool.get_ref().get_conn().unwrap();
-
-  let users = conn.query_map(
-    format!("SELECT id, email, password FROM users WHERE email='{}'", body.email),
-    |(id, email, password)| {
-      UserModel { id, email, password }
-    },
-  ).unwrap();
-
-  if let Some(_) = users.get(0) {
+  if let Some(_) = user_repository.as_ref().find_by_email(&body.email) {
     return status(409).json(message("Email exists"))
   };
 
-  conn.exec_drop(
-    r"INSERT INTO users (email, password)
-    VALUES (:email, :password)"
-    , params! {
-      "email" => &body.email,
-      "password" => &body.password,
-    }).unwrap();
+  actix_web::rt::time::sleep(std::time::Duration::from_millis(10)).await;
 
-  let results = conn.query_map(
-    format!("SELECT id, email, password FROM users WHERE email='{}'", body.email),
-    |(id, email, password)| {
-      UserModel { id, email, password }
-    },
-  ).unwrap();
+  let result = user_repository.as_ref().save(&body.email, &body.password);
 
-  let result = results.get(0).unwrap();
-
-  status(200).json(SignUpResponseBody {
+  status(201).json(SignUpResponseBody {
     id: result.id,
     email: result.email.clone(),
     password: result.password.clone(),

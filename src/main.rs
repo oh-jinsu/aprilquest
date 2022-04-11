@@ -1,11 +1,12 @@
+use std::env;
+use std::sync::{Arc};
+
 use dotenv::dotenv;
 use actix_web::{web, App, HttpServer };
 use mysql::*;
 use mysql::prelude::*;
 
-use aprilquest::controller;
-
-use std::env;
+use aprilquest::{controller, repository};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -19,7 +20,7 @@ async fn main() -> std::io::Result<()> {
 
     let opts = Opts::from_url(&database_url).expect("Database url is not valid.");
 
-    let pool = Pool::new(opts).expect("Failed to construct a pool.");
+    let pool = Arc::new(Pool::new(opts).expect("Failed to construct a pool."));
 
     let mut conn = pool.get_conn().expect("Failed to connect");
 
@@ -40,7 +41,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(repository::user::new(Arc::clone(&pool))))
             .service(
                 web::scope("/v1")
                     .service(
